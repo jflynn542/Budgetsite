@@ -25,6 +25,19 @@
                 <select id="yearSelect"></select>
             </div>
 
+            <div>
+                <label for="currencySelect">Currency</label>
+                <select id="currencySelect">
+                    <option value="EUR">Euro (€)</option>
+                    <option value="GBP">Pounds (£)</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="gbpRateInput">Conversion rate (£1 = €)</label>
+                <input type="number" id="gbpRateInput" step="0.0001" min="0.0001" placeholder="1.1700">
+            </div>
+
             <button id="todayBtn" class="small-btn secondary-btn">Current Month</button>
         </section>
 
@@ -63,7 +76,7 @@
                     <h2>Add Income</h2>
                     <div class="form-grid">
                         <input type="text" id="incomeName" placeholder="Income name">
-                        <input type="number" id="incomeAmount" placeholder="Amount">
+                        <input type="number" id="incomeAmount" placeholder="Amount (€)">
                         <button id="addIncomeBtn" class="small-btn">Add Income</button>
                     </div>
                 </div>
@@ -72,7 +85,7 @@
                     <h2>Add Expense</h2>
                     <div class="form-grid">
                         <input type="text" id="expenseName" placeholder="Expense name">
-                        <input type="number" id="expenseAmount" placeholder="Amount">
+                        <input type="number" id="expenseAmount" placeholder="Amount (€)">
                         <select id="expenseCategory">
                             <option value="">Choose category</option>
                             <option value="Rent">Rent</option>
@@ -143,7 +156,7 @@
                     <h2>Add Asset</h2>
                     <div class="form-grid">
                         <input type="text" id="assetName" placeholder="Asset name">
-                        <input type="number" id="assetAmount" placeholder="Value">
+                        <input type="number" id="assetAmount" placeholder="Value (€)">
                         <button id="addAssetBtn" class="small-btn">Add Asset</button>
                     </div>
                 </div>
@@ -152,7 +165,7 @@
                     <h2>Add Liability</h2>
                     <div class="form-grid">
                         <input type="text" id="liabilityName" placeholder="Liability name">
-                        <input type="number" id="liabilityAmount" placeholder="Amount owed">
+                        <input type="number" id="liabilityAmount" placeholder="Amount owed (€)">
                         <button id="addLiabilityBtn" class="small-btn">Add Liability</button>
                     </div>
                 </div>
@@ -229,7 +242,7 @@
                 <h2>Add Planner Item</h2>
                 <div class="form-grid planner-grid">
                     <input type="text" id="plannerName" placeholder="Item name">
-                    <input type="number" id="plannerAmount" placeholder="Amount">
+                    <input type="number" id="plannerAmount" placeholder="Amount (€)">
                     <select id="plannerType">
                         <option value="plannedIncome">Planned Income</option>
                         <option value="plannedExpense">Planned Expense</option>
