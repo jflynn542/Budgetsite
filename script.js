@@ -408,7 +408,7 @@ function updateProgress(income, expenses, profit) {
         warningMessage.textContent = "Almost used up";
     } else {
         progressFill.classList.add("danger-fill");
-        warningMessage.textContent = "OVERBUDGET NIGGA";
+        warningMessage.textContent = "OVER FUCKING BUDGET";
     }
 }
 
