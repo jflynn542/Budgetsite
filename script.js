@@ -1,6 +1,7 @@
 const STORAGE_KEY = "budgetTrackerFullLocalData";
 const LEGACY_INCOME_KEY = "budgetIncome";
 const LEGACY_EXPENSES_KEY = "budgetExpenses";
+const CURRENCY_SETTINGS_KEY = "budgetCurrencySettings";
 
 const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -11,10 +12,13 @@ const currentDate = new Date();
 let selectedPeriod = getPeriodKey(currentDate.getFullYear(), currentDate.getMonth() + 1);
 let selectedYear = String(currentDate.getFullYear());
 let budgetData = loadBudgetData();
+let currencySettings = loadCurrencySettings();
 
 const periodSelect = document.getElementById("periodSelect");
 const yearSelect = document.getElementById("yearSelect");
 const todayBtn = document.getElementById("todayBtn");
+const currencySelect = document.getElementById("currencySelect");
+const gbpRateInput = document.getElementById("gbpRateInput");
 
 const incomeName = document.getElementById("incomeName");
 const incomeAmount = document.getElementById("incomeAmount");
@@ -65,6 +69,89 @@ const plannedExpenseDisplay = document.getElementById("plannedExpenseDisplay");
 const plannedAssetDisplay = document.getElementById("plannedAssetDisplay");
 const plannedLiabilityDisplay = document.getElementById("plannedLiabilityDisplay");
 
+
+function defaultCurrencySettings() {
+    return {
+        activeCurrency: "EUR",
+        gbpToEur: 1.17
+    };
+}
+
+function loadCurrencySettings() {
+    const saved = localStorage.getItem(CURRENCY_SETTINGS_KEY);
+    if (!saved) {
+        return defaultCurrencySettings();
+    }
+
+    try {
+        const parsed = JSON.parse(saved);
+        const defaults = defaultCurrencySettings();
+        return {
+            activeCurrency: parsed.activeCurrency === "GBP" ? "GBP" : defaults.activeCurrency,
+            gbpToEur: Number(parsed.gbpToEur) > 0 ? Number(parsed.gbpToEur) : defaults.gbpToEur
+        };
+    } catch (error) {
+        console.warn("Currency settings error", error);
+        return defaultCurrencySettings();
+    }
+}
+
+function saveCurrencySettings() {
+    localStorage.setItem(CURRENCY_SETTINGS_KEY, JSON.stringify(currencySettings));
+}
+
+function currencySymbol(currency) {
+    return currency === "GBP" ? "£" : "€";
+}
+
+function convertToEur(amount, currency) {
+    const numericAmount = Number(amount) || 0;
+    if (currency === "GBP") {
+        return numericAmount * currencySettings.gbpToEur;
+    }
+    return numericAmount;
+}
+
+function convertFromEur(amountInEur, currency) {
+    const numericAmount = Number(amountInEur) || 0;
+    if (currency === "GBP") {
+        return numericAmount / currencySettings.gbpToEur;
+    }
+    return numericAmount;
+}
+
+function getEntryAmountInEur(item) {
+    if (item.amountEUR !== undefined) {
+        return Number(item.amountEUR || 0);
+    }
+    return Number(item.amount || 0);
+}
+
+function normalizeEntryAmounts(data) {
+    Object.keys(data.periods || {}).forEach(function (periodKey) {
+        const period = data.periods[periodKey];
+        ["income", "expenses", "assets", "liabilities"].forEach(function (listName) {
+            period[listName] = period[listName] || [];
+            period[listName].forEach(function (item) {
+                if (item.amountEUR === undefined) {
+                    item.amountEUR = Number(item.amount || 0);
+                    item.originalAmount = Number(item.amount || 0);
+                    item.currency = item.currency || "EUR";
+                }
+            });
+        });
+    });
+
+    data.planner = data.planner || [];
+    data.planner.forEach(function (item) {
+        if (item.amountEUR === undefined) {
+            item.amountEUR = Number(item.amount || 0);
+            item.originalAmount = Number(item.amount || 0);
+            item.currency = item.currency || "EUR";
+        }
+    });
+}
+
 function defaultData() {
     return {
         periods: {},
@@ -88,6 +175,7 @@ function loadBudgetData() {
             const parsed = JSON.parse(saved);
             parsed.periods = parsed.periods || {};
             parsed.planner = parsed.planner || [];
+            normalizeEntryAmounts(parsed);
             return parsed;
         } catch (error) {
             console.warn("Error", error);
@@ -101,19 +189,21 @@ function loadBudgetData() {
     if (oldIncome > 0 || oldExpenses.length > 0) {
         const period = defaultPeriod();
         if (oldIncome > 0) {
-            period.income.push(createEntry("Monthly income", oldIncome, "Income"));
+            period.income.push(createEntry("Monthly income", oldIncome, "Income", "EUR"));
         }
         period.expenses = oldExpenses.map(function (expense) {
-            return createEntry(expense.name, Number(expense.amount), expense.category || "Other");
+            return createEntry(expense.name, Number(expense.amount), expense.category || "Other", "EUR");
         });
         data.periods[selectedPeriod] = period;
     }
 
+    normalizeEntryAmounts(data);
     return data;
 }
 
 function saveData() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(budgetData));
+    saveCurrencySettings();
 }
 
 function getPeriodKey(year, month) {
@@ -153,23 +243,38 @@ function getPreviousPeriodKey(periodKey) {
     return getPeriodKey(previousYear, previousMonth);
 }
 
-function createEntry(name, amount, category) {
+function createEntry(name, amount, category, currency) {
+    const entryCurrency = currency || currencySettings.activeCurrency;
+    const originalAmount = Number(amount);
+    const amountEUR = convertToEur(originalAmount, entryCurrency);
+
     return {
         id: Date.now() + Math.random().toString(16).slice(2),
         name: name,
-        amount: Number(amount),
+        amount: amountEUR,
+        amountEUR: amountEUR,
+        originalAmount: originalAmount,
+        currency: entryCurrency,
         category: category || "Other"
     };
 }
 
-function formatMoney(amount) {
-    const sign = amount < 0 ? "-" : "";
-    return sign + "€" + Math.abs(amount).toFixed(2);
+function formatMoney(amountInEur) {
+    const convertedAmount = convertFromEur(amountInEur, currencySettings.activeCurrency);
+    const sign = convertedAmount < 0 ? "-" : "";
+    return sign + currencySymbol(currencySettings.activeCurrency) + Math.abs(convertedAmount).toFixed(2);
+}
+
+function formatOriginalMoney(item) {
+    const originalCurrency = item.currency || "EUR";
+    const originalAmount = item.originalAmount !== undefined ? Number(item.originalAmount) : getEntryAmountInEur(item);
+    const sign = originalAmount < 0 ? "-" : "";
+    return sign + currencySymbol(originalCurrency) + Math.abs(originalAmount).toFixed(2);
 }
 
 function total(items) {
     return items.reduce(function (sum, item) {
-        return sum + Number(item.amount || 0);
+        return sum + getEntryAmountInEur(item);
     }, 0);
 }
 
@@ -239,10 +344,10 @@ function renderEntryList(container, items, type) {
         row.innerHTML = `
             <div class="entry-info">
                 <h4>${escapeHTML(item.name)}</h4>
-                <p>${escapeHTML(item.category || type)}</p>
+                <p>${escapeHTML(item.category || type)} · Logged as ${formatOriginalMoney(item)}</p>
             </div>
             <div class="entry-actions">
-                <span>${formatMoney(Number(item.amount))}</span>
+                <span>${formatMoney(getEntryAmountInEur(item))}</span>
                 <button class="small-btn delete-btn" data-type="${type}" data-id="${item.id}">Delete</button>
             </div>
         `;
@@ -365,7 +470,7 @@ function updatePlanner() {
     };
 
     budgetData.planner.forEach(function (item) {
-        totals[item.type] += Number(item.amount || 0);
+        totals[item.type] += getEntryAmountInEur(item);
     });
 
     plannedIncomeDisplay.textContent = formatMoney(totals.plannedIncome);
@@ -385,10 +490,10 @@ function updatePlanner() {
         row.innerHTML = `
             <div class="entry-info">
                 <h4>${escapeHTML(item.name)}</h4>
-                <p>${formatPlannerType(item.type)}</p>
+                <p>${formatPlannerType(item.type)} · Logged as ${formatOriginalMoney(item)}</p>
             </div>
             <div class="entry-actions">
-                <span>${formatMoney(Number(item.amount))}</span>
+                <span>${formatMoney(getEntryAmountInEur(item))}</span>
                 <button class="small-btn delete-btn" data-type="planner" data-id="${item.id}">Delete</button>
             </div>
         `;
@@ -406,8 +511,31 @@ function formatPlannerType(type) {
     return labels[type] || type;
 }
 
+function updateCurrencyControls() {
+    if (currencySelect) {
+        currencySelect.value = currencySettings.activeCurrency;
+    }
+    if (gbpRateInput) {
+        gbpRateInput.value = currencySettings.gbpToEur;
+    }
+
+    const symbol = currencySymbol(currencySettings.activeCurrency);
+    [
+        [incomeAmount, "Amount"],
+        [expenseAmount, "Amount"],
+        [assetAmount, "Value"],
+        [liabilityAmount, "Amount owed"],
+        [plannerAmount, "Amount"]
+    ].forEach(function (field) {
+        if (field[0]) {
+            field[0].placeholder = field[1] + " (" + symbol + ")";
+        }
+    });
+}
+
 function updateEverything() {
     ensurePeriod(selectedPeriod);
+    updateCurrencyControls();
     populatePeriodSelect();
     populateYearSelect();
     updateMonthlyPL();
@@ -427,7 +555,7 @@ function addMonthlyItem(listName, nameInput, amountInput, categoryValue) {
     }
 
     const period = ensurePeriod(selectedPeriod);
-    period[listName].push(createEntry(name, amount, categoryValue));
+    period[listName].push(createEntry(name, amount, categoryValue, currencySettings.activeCurrency));
 
     nameInput.value = "";
     amountInput.value = "";
@@ -483,6 +611,22 @@ todayBtn.addEventListener("click", function () {
     updateEverything();
 });
 
+currencySelect.addEventListener("change", function () {
+    currencySettings.activeCurrency = currencySelect.value;
+    updateEverything();
+});
+
+gbpRateInput.addEventListener("change", function () {
+    const rate = Number(gbpRateInput.value);
+    if (rate <= 0) {
+        alert("Enter a valid conversion rate");
+        updateCurrencyControls();
+        return;
+    }
+    currencySettings.gbpToEur = rate;
+    updateEverything();
+});
+
 document.querySelectorAll(".tab-btn").forEach(function (button) {
     button.addEventListener("click", function () {
         setActiveTab(button.dataset.tab);
@@ -520,10 +664,14 @@ addPlannerBtn.addEventListener("click", function () {
         return;
     }
 
+    const amountEUR = convertToEur(amount, currencySettings.activeCurrency);
     budgetData.planner.push({
         id: Date.now() + Math.random().toString(16).slice(2),
         name: name,
-        amount: amount,
+        amount: amountEUR,
+        amountEUR: amountEUR,
+        originalAmount: amount,
+        currency: currencySettings.activeCurrency,
         type: plannerType.value
     });
 
@@ -569,7 +717,9 @@ clearAllBtn.addEventListener("click", function () {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(LEGACY_INCOME_KEY);
     localStorage.removeItem(LEGACY_EXPENSES_KEY);
+    localStorage.removeItem(CURRENCY_SETTINGS_KEY);
     budgetData = defaultData();
+    currencySettings = defaultCurrencySettings();
     updateEverything();
 });
 
