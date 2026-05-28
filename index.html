@@ -2,14 +2,9 @@
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Budget Site</title><link rel="stylesheet" href="style.css"></head><body data-page="home"><header class="site-header"><div><h1>Budget Site</h1><p>Firebase P+L, reserves and planning tracker</p></div><div class="auth-actions">
   <div class="auth-status"><span id="authEmailDisplay">Sign in to load and save your budget data.</span><span id="authMessage" class="muted"></span></div>
   <div class="auth-form signed-out-only">
-    <input id="authEmail" type="email" placeholder="Email">
-    <input id="authPassword" type="password" placeholder="Password">
-    <button id="emailSignInBtn" class="ghost">Sign in</button>
-    <button id="createAccountBtn" class="ghost">Create account</button>
-    <button id="googleSignInBtn" class="ghost">Google</button>
+    <button id="googleSignInBtn" class="ghost">Sign in with Google</button>
   </div>
   <div class="auth-form signed-in-only" hidden>
-    <button id="importLegacyBtn" class="ghost" hidden>Import old local data</button>
     <button id="signOutBtn" class="ghost">Sign out</button>
   </div>
-</div></header><nav class="top-nav"><a href="index.html" class="active">Home</a><a href="pl.html">P+L</a><a href="reserves.html">Reserves</a><a href="planner.html">Planner</a><a href="currency.html">Currency</a></nav><main><section class="card"><div class="section-header"><div><h2>Main page</h2><p class="muted">A compact yearly view of your saved financial periods.</p></div><button id="clearAllBtn" class="danger-btn">Clear Firebase data</button></div><div class="home-stats simple"><div><span>Total P+L</span><strong id="homeProfit">€0.00</strong></div></div><div class="toolbar inline"><label>Year view<select id="yearSelect"></select></label><label>View currency<select id="currencySelect"><option value="EUR">Euro (€)</option><option value="GBP">Pounds (£)</option></select></label></div><div class="table-wrap"><table><thead><tr><th>Month</th><th>P+L</th><th>Reserves</th><th>Reserve change</th></tr></thead><tbody id="overviewTableBody"></tbody></table></div></section></main><div id="modalRoot"></div><script type="module" src="script.js"></script></body></html>
+</div></header><nav class="top-nav"><a href="index.html" class="active">Home</a><a href="pl.html">P+L</a><a href="reserves.html">Reserves</a><a href="planner.html">Planner</a><a href="mini-pls.html">Mini P+Ls</a><a href="currency.html">Currency</a></nav><main><section class="card"><div class="section-header"><div><h2>Main page</h2><p class="muted">A compact yearly view of your saved financial periods.</p></div></div><div class="home-stats simple"><div><span>Total P+L</span><strong id="homeProfit">€0.00</strong></div></div><div class="toolbar inline"><label>Year view<select id="yearSelect"></select></label><label>View currency<select id="currencySelect"><option value="EUR">Euro (€)</option><option value="GBP">Pounds (£)</option></select></label></div><div class="table-wrap"><table><thead><tr><th>Month</th><th>P+L</th><th>Reserves</th><th>Reserve change</th></tr></thead><tbody id="overviewTableBody"></tbody></table></div></section></main><div id="modalRoot"></div><script type="module" src="script.js"></script></body></html>
