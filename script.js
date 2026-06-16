@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, collectionGroup, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, collection, collectionGroup, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import { app as firebaseApp, auth as firebaseAuth, db as firebaseDb } from "./firebase-config.js";
 
 const LEGACY_STORAGE_KEY="budgetTrackerFullLocalData";
@@ -38,7 +38,32 @@ function normaliseEntry(e){if(e.amountEUR===undefined)e.amountEUR=Number(e.amoun
 function userDoc(){return activeUserId?doc(db,"users",activeUserId,"budget","main"):null}
 async function saveUserProfile(user){try{await setDoc(doc(db,"users",user.uid),{uid:user.uid,email:user.email||"",displayName:user.displayName||"",photoURL:user.photoURL||"",lastSeenAt:serverTimestamp()},{merge:true})}catch(err){console.warn("User profile save skipped",err)}}
 async function checkAdmin(user){try{const snap=await getDoc(doc(db,"admins",user.uid));return snap.exists()}catch(err){console.warn("Admin check skipped",err);return false}}
-async function loadAdminUsers(){if(!isAdmin){adminUsers=[];return}try{const snap=await getDocs(collectionGroup(db,"budget"));const seen=new Map();snap.docs.forEach(d=>{const parent=d.ref.parent.parent;if(parent&&d.id==="main")seen.set(parent.id,{uid:parent.id,email:parent.id,displayName:""})});adminUsers=[...seen.values()].sort((a,b)=>(a.email||a.displayName||a.uid).localeCompare(b.email||b.displayName||b.uid))}catch(err){console.warn("Admin user list skipped",err);adminUsers=[]}}
+async function loadAdminUsers(){
+  if(!isAdmin){adminUsers=[];return}
+  const seen=new Map();
+  try{
+    const usersSnap=await getDocs(collection(db,"users"));
+    usersSnap.docs.forEach(d=>{
+      const u=d.data()||{};
+      seen.set(d.id,{uid:d.id,email:u.email||"",displayName:u.displayName||""});
+    });
+  }catch(err){
+    console.warn("Admin user profile list skipped",err);
+  }
+  try{
+    const budgetSnap=await getDocs(collectionGroup(db,"budget"));
+    budgetSnap.docs.forEach(d=>{
+      const parent=d.ref.parent.parent;
+      if(parent&&d.id==="main"&&!seen.has(parent.id))seen.set(parent.id,{uid:parent.id,email:"",displayName:""});
+    });
+  }catch(err){
+    console.warn("Admin budget user fallback skipped",err);
+  }
+  if(currentUser&&!seen.has(currentUser.uid)){
+    seen.set(currentUser.uid,{uid:currentUser.uid,email:currentUser.email||"",displayName:currentUser.displayName||""});
+  }
+  adminUsers=[...seen.values()].sort((a,b)=>(a.email||a.displayName||a.uid).localeCompare(b.email||b.displayName||b.uid));
+}
 async function loadFromFirebase(user){activeUserId=activeUserId||user.uid;firebaseDataLoaded=false;const snap=await getDoc(doc(db,"users",activeUserId,"budget","main"));const localData=loadLegacyData();const localCurrency=legacyCurrency();if(snap.exists()){const saved=snap.data();data=cleanData(saved.data);currency={...defaultCurrency(),...(saved.currency||{})};if(activeUserId===user.uid&&!hasAnyData(data)&&hasAnyData(localData)){data=localData;currency=localCurrency;firebaseDataLoaded=true;await saveNow()}}else{data=activeUserId===user.uid&&hasAnyData(localData)?localData:defaultData();currency=activeUserId===user.uid&&hasAnyData(localData)?localCurrency:defaultCurrency();firebaseDataLoaded=true;await saveNow()}firebaseDataLoaded=true;const picked=adminUsers.find(u=>u.uid===activeUserId);activeUserLabel=picked?(picked.email||picked.displayName||picked.uid):(activeUserId===user.uid?(user.email||user.displayName||"account"):activeUserId)}
 async function saveNow(){if(!currentUser||!db||!activeUserId||!firebaseDataLoaded)return;await setDoc(userDoc(),{data,currency,updatedAt:serverTimestamp()},{merge:true})}
 function save(){if(!booted||!currentUser||!firebaseDataLoaded)return;clearTimeout(saveTimer);saveTimer=setTimeout(()=>saveNow().catch(err=>console.error("Firebase save failed",err)),400)}
